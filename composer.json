@@ -1,0 +1,42 @@
+{
+    "name": "phpnl/mcp",
+    "description": "A framework-agnostic PHP SDK for the Model Context Protocol (MCP). Connect your PHP application to AI models like Claude in minutes.",
+    "type": "library",
+    "keywords": ["mcp", "model-context-protocol", "ai", "claude", "anthropic", "php", "sdk", "cli"],
+    "license": "MIT",
+    "homepage": "https://php.nl",
+    "authors": [
+        {
+            "name": "php.nl Community",
+            "homepage": "https://php.nl"
+        }
+    ],
+    "bin": ["bin/phpnl"],
+    "require": {
+        "php": "^8.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11",
+        "phpstan/phpstan": "^1.12",
+        "friendsofphp/php-cs-fixer": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Phpnl\\Mcp\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Phpnl\\Mcp\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --testdox",
+        "stan": "phpstan analyse",
+        "lint": "php-cs-fixer fix --dry-run --diff"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable"
+}

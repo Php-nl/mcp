@@ -1,0 +1,352 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Phpnl\Mcp\Tests\Unit;
+
+use Phpnl\Mcp\Protocol\ErrorCode;
+use Phpnl\Mcp\Protocol\JsonRpcHandler;
+use Phpnl\Mcp\Prompt\PromptRegistry;
+use Phpnl\Mcp\Resource\ResourceRegistry;
+use Phpnl\Mcp\Tool\ToolRegistry;
+use PHPUnit\Framework\TestCase;
+
+final class JsonRpcHandlerTest extends TestCase
+{
+    private ToolRegistry $toolRegistry;
+    private ResourceRegistry $resourceRegistry;
+    private PromptRegistry $promptRegistry;
+    private JsonRpcHandler $handler;
+
+    protected function setUp(): void
+    {
+        $this->toolRegistry = new ToolRegistry();
+        $this->resourceRegistry = new ResourceRegistry();
+        $this->promptRegistry = new PromptRegistry();
+        $this->handler = new JsonRpcHandler(
+            $this->toolRegistry,
+            $this->resourceRegistry,
+            $this->promptRegistry,
+        );
+    }
+
+    public function testReturnsNullForBlankLine(): void
+    {
+        $this->assertNull($this->handler->handle(''));
+    }
+
+    public function testReturnsParseErrorForInvalidJson(): void
+    {
+        $response = json_decode($this->handler->handle('not json'), true);
+
+        $this->assertSame(ErrorCode::ParseError->value, $response['error']['code']);
+    }
+
+    public function testHandlesInitialize(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => ['protocolVersion' => '2024-11-05'],
+        ])), true);
+
+        $this->assertSame('2024-11-05', $response['result']['protocolVersion']);
+        $this->assertSame('phpnl/mcp', $response['result']['serverInfo']['name']);
+    }
+
+    public function testInitializeReturnsErrorForUnsupportedVersion(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => ['protocolVersion' => '2020-01-01'],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+        $this->assertStringContainsString('2020-01-01', $response['error']['data']);
+    }
+
+    public function testInitializeCapabilitiesOnlyIncludeToolsByDefault(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => [],
+        ])), true);
+
+        $capabilities = $response['result']['capabilities'];
+        $this->assertArrayHasKey('tools', $capabilities);
+        $this->assertArrayNotHasKey('resources', $capabilities);
+        $this->assertArrayNotHasKey('prompts', $capabilities);
+    }
+
+    public function testInitializeIncludesResourceCapabilityWhenRegistered(): void
+    {
+        $this->resourceRegistry->register('file://readme', 'README', 'text/plain', fn () => 'content');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => [],
+        ])), true);
+
+        $this->assertArrayHasKey('resources', $response['result']['capabilities']);
+    }
+
+    public function testInitializeIncludesPromptCapabilityWhenRegistered(): void
+    {
+        $this->promptRegistry->register('summarize', 'Summarizes text', fn (array $args) => 'summary');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => [],
+        ])), true);
+
+        $this->assertArrayHasKey('prompts', $response['result']['capabilities']);
+    }
+
+    public function testHandlesToolsList(): void
+    {
+        $this->toolRegistry->register('greet', 'Greets someone', fn (string $name): string => "Hello, $name!");
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 2,
+            'method' => 'tools/list',
+            'params' => [],
+        ])), true);
+
+        $this->assertCount(1, $response['result']['tools']);
+        $this->assertSame('greet', $response['result']['tools'][0]['name']);
+    }
+
+    public function testHandlesToolsCall(): void
+    {
+        $this->toolRegistry->register('add', 'Adds two numbers', fn (int $a, int $b): string => (string) ($a + $b));
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 3,
+            'method' => 'tools/call',
+            'params' => ['name' => 'add', 'arguments' => ['a' => 2, 'b' => 3]],
+        ])), true);
+
+        $this->assertSame('5', $response['result']['content'][0]['text']);
+    }
+
+    public function testReturnsInvalidParamsWhenToolNameMissing(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 4,
+            'method' => 'tools/call',
+            'params' => ['arguments' => []],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+    }
+
+    public function testReturnsToolNotFoundError(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 5,
+            'method' => 'tools/call',
+            'params' => ['name' => 'non_existent', 'arguments' => []],
+        ])), true);
+
+        $this->assertSame(ErrorCode::ToolNotFound->value, $response['error']['code']);
+    }
+
+    public function testReturnsInternalErrorWhenToolThrowsUnexpectedException(): void
+    {
+        $this->toolRegistry->register('boom', 'Always fails', function (): string {
+            throw new \LogicException('Unexpected failure');
+        });
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 6,
+            'method' => 'tools/call',
+            'params' => ['name' => 'boom', 'arguments' => []],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InternalError->value, $response['error']['code']);
+        $this->assertStringContainsString('Unexpected failure', $response['error']['data']);
+    }
+
+    public function testReturnsMethodNotFoundError(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 7,
+            'method' => 'unknown/method',
+            'params' => [],
+        ])), true);
+
+        $this->assertSame(ErrorCode::MethodNotFound->value, $response['error']['code']);
+    }
+
+    public function testIgnoresInitializedNotification(): void
+    {
+        $response = $this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'method' => 'notifications/initialized',
+        ]));
+
+        $this->assertNull($response);
+    }
+
+    public function testHandlesPing(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 99,
+            'method' => 'ping',
+            'params' => [],
+        ])), true);
+
+        $this->assertArrayHasKey('result', $response);
+        $this->assertSame(99, $response['id']);
+    }
+
+    public function testResourcesReadWithoutUriReturnsInvalidParams(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 50,
+            'method' => 'resources/read',
+            'params' => [],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+    }
+
+    public function testPromptsGetWithoutNameReturnsInvalidParams(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 51,
+            'method' => 'prompts/get',
+            'params' => [],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+    }
+
+    public function testHandlesResourcesList(): void
+    {
+        $this->resourceRegistry->register('file://readme', 'README', 'text/plain', fn () => 'content');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 8,
+            'method' => 'resources/list',
+            'params' => [],
+        ])), true);
+
+        $this->assertCount(1, $response['result']['resources']);
+        $this->assertSame('file://readme', $response['result']['resources'][0]['uri']);
+    }
+
+    public function testHandlesResourcesListEmpty(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 8,
+            'method' => 'resources/list',
+            'params' => [],
+        ])), true);
+
+        $this->assertEmpty($response['result']['resources']);
+    }
+
+    public function testHandlesResourcesRead(): void
+    {
+        $this->resourceRegistry->register('file://readme', 'README', 'text/plain', fn () => 'Hello World');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 9,
+            'method' => 'resources/read',
+            'params' => ['uri' => 'file://readme'],
+        ])), true);
+
+        $this->assertSame('Hello World', $response['result']['contents'][0]['text']);
+    }
+
+    public function testResourcesReadReturnsErrorForUnknownUri(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 9,
+            'method' => 'resources/read',
+            'params' => ['uri' => 'file://missing'],
+        ])), true);
+
+        $this->assertSame(ErrorCode::ResourceNotFound->value, $response['error']['code']);
+    }
+
+    public function testHandlesPromptsList(): void
+    {
+        $this->promptRegistry->register('summarize', 'Summarizes text', fn (array $args) => 'summary');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 10,
+            'method' => 'prompts/list',
+            'params' => [],
+        ])), true);
+
+        $this->assertCount(1, $response['result']['prompts']);
+        $this->assertSame('summarize', $response['result']['prompts'][0]['name']);
+    }
+
+    public function testHandlesPromptsListEmpty(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 10,
+            'method' => 'prompts/list',
+            'params' => [],
+        ])), true);
+
+        $this->assertEmpty($response['result']['prompts']);
+    }
+
+    public function testHandlesPromptsGet(): void
+    {
+        $this->promptRegistry->register(
+            'greet',
+            'Greets a user',
+            fn (array $args) => "Hello, {$args['name']}!",
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 11,
+            'method' => 'prompts/get',
+            'params' => ['name' => 'greet', 'arguments' => ['name' => 'PHP']],
+        ])), true);
+
+        $this->assertSame('Hello, PHP!', $response['result']['messages'][0]['content']['text']);
+    }
+
+    public function testPromptsGetReturnsErrorForUnknownPrompt(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 11,
+            'method' => 'prompts/get',
+            'params' => ['name' => 'missing'],
+        ])), true);
+
+        $this->assertSame(ErrorCode::PromptNotFound->value, $response['error']['code']);
+    }
+}
