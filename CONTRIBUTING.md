@@ -31,34 +31,44 @@ vendor/bin/php-cs-fixer fix
 
 ```
 src/
-  McpServer.php           Entry point — fluent API
+  McpServer.php               Entry point — fluent builder API
   Protocol/
-    JsonRpcHandler.php    Handles all MCP methods
-    JsonRpcMessage.php    Value object for JSON-RPC messages
-    ErrorCode.php         Enum of standard error codes
+    JsonRpcHandler.php         Handles all MCP methods; sends progress notifications
+    JsonRpcMessage.php         Value object for JSON-RPC messages
+    ErrorCode.php              Enum of standard JSON-RPC / MCP error codes
   Tool/
-    Tool.php              Value object + schema generator + caller
-    ToolRegistry.php      Stores and dispatches tools
-    Description.php       #[Description] attribute for parameters
+    Tool.php                   Value object + JSON Schema generator + argument validator + caller
+    ToolRegistry.php           Stores tools, runs middleware pipeline, dispatches calls
+    ToolResult.php             Immutable rich result (text / image / resource, chainable)
+    ProgressReporter.php       Sends notifications/progress out-of-band during tool execution
+    Description.php            #[Description] attribute for parameter-level descriptions
+  Exception/
+    McpException.php           Abstract base (extends RuntimeException, carries ErrorCode)
+    ToolNotFoundException.php
+    InvalidToolArgumentsException.php
+    ResourceNotFoundException.php
+    PromptNotFoundException.php
   Resource/
-    Resource.php          Value object
-    ResourceRegistry.php  Stores and reads resources
+    Resource.php               Value object
+    ResourceRegistry.php       Stores and reads resources
   Prompt/
-    Prompt.php            Value object
-    PromptRegistry.php    Stores and invokes prompts
+    Prompt.php                 Value object
+    PromptRegistry.php         Stores and invokes prompts
   Transport/
-    StdioTransport.php    Default stdio transport
-    TransportInterface.php
+    TransportInterface.php     read(): ?string  /  write(string): void
+    StdioTransport.php         Default — STDIN/STDOUT
+    HttpSseTransport.php       HTTP + Server-Sent Events, no framework required
   Cli/
-    Application.php       CLI entry point (injectable)
-    ServerProcess.php     Launches and communicates with a server
-    Commands/             One class per CLI command
+    Application.php            CLI entry point (injectable for testing)
+    ServerProcess.php          Launches a server subprocess and communicates with it
+    Commands/                  One class per CLI command (inspect, debug, call, read, prompt)
 examples/
-  hello-world/            Basic tool example
-  resources-and-prompts/  Full example with resources + prompts
+  hello-world/                 Minimal tool example
+  http-sse/                    HTTP + SSE transport example
+  resources-and-prompts/       Full example with resources + prompts
 tests/
-  Unit/                   Fast unit tests (no subprocess)
-  Integration/            Tests that spawn a real server process
+  Unit/                        Fast unit tests (no subprocess)
+  Integration/                 Tests that spawn a real server process
 ```
 
 ## Adding a new MCP method
