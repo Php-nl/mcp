@@ -15,6 +15,19 @@ use Phpnl\Mcp\Tool\ToolResult;
 
 final class JsonRpcHandler
 {
+    /**
+     * MCP protocol versions this server understands, newest first.
+     *
+     * @var list<string>
+     */
+    public const SUPPORTED_PROTOCOL_VERSIONS = [
+        '2025-06-18',
+        '2025-03-26',
+        '2024-11-05',
+    ];
+
+    public const LATEST_PROTOCOL_VERSION = self::SUPPORTED_PROTOCOL_VERSIONS[0];
+
     /** @var Closure(string): void */
     private readonly Closure $writer;
 
@@ -62,15 +75,13 @@ final class JsonRpcHandler
     private function handleInitialize(JsonRpcMessage $message): string
     {
         $clientVersion = $message->params['protocolVersion'] ?? null;
-        $supportedVersion = '2024-11-05';
 
-        if ($clientVersion !== null && $clientVersion !== $supportedVersion) {
-            return $this->errorResponse(
-                $message->id,
-                ErrorCode::InvalidParams,
-                "Unsupported protocol version: {$clientVersion}. Expected: {$supportedVersion}",
-            );
-        }
+        // Per the MCP spec: echo the client's version when supported,
+        // otherwise reply with the server's latest version and let the
+        // client decide whether to continue.
+        $negotiatedVersion = is_string($clientVersion) && in_array($clientVersion, self::SUPPORTED_PROTOCOL_VERSIONS, true)
+            ? $clientVersion
+            : self::LATEST_PROTOCOL_VERSION;
 
         $capabilities = ['tools' => new \stdClass()];
 
@@ -83,7 +94,7 @@ final class JsonRpcHandler
         }
 
         return $this->successResponse($message->id, [
-            'protocolVersion' => $supportedVersion,
+            'protocolVersion' => $negotiatedVersion,
             'capabilities' => $capabilities,
             'serverInfo' => [
                 'name' => 'phpnl/mcp',

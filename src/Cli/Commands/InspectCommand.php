@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Cli\Commands;
 
 use Phpnl\Mcp\Cli\ServerProcess;
+use Phpnl\Mcp\Protocol\JsonRpcHandler;
 
 final class InspectCommand
 {
@@ -41,7 +42,7 @@ final class InspectCommand
         echo "\n\033[1mphpnl/mcp Server Inspector\033[0m\n";
         echo str_repeat('─', 42) . "\n";
         echo sprintf("Server:   \033[32m%s\033[0m v%s\n", $serverInfo['name'], $serverInfo['version']);
-        echo "Protocol: 2024-11-05\n\n";
+        echo sprintf("Protocol: %s\n\n", JsonRpcHandler::LATEST_PROTOCOL_VERSION);
     }
 
     /**

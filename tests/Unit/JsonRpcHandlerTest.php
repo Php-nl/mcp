@@ -57,7 +57,7 @@ final class JsonRpcHandlerTest extends TestCase
         $this->assertSame('phpnl/mcp', $response['result']['serverInfo']['name']);
     }
 
-    public function testInitializeReturnsErrorForUnsupportedVersion(): void
+    public function testInitializeNegotiatesLatestVersionForUnsupportedClientVersion(): void
     {
         $response = json_decode($this->handler->handle(json_encode([
             'jsonrpc' => '2.0',
@@ -66,8 +66,40 @@ final class JsonRpcHandlerTest extends TestCase
             'params' => ['protocolVersion' => '2020-01-01'],
         ])), true);
 
-        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
-        $this->assertStringContainsString('2020-01-01', $response['error']['data']);
+        // Per the MCP spec the server replies with its own latest version
+        // when the client requests one it doesn't support.
+        $this->assertArrayNotHasKey('error', $response);
+        $this->assertSame(
+            JsonRpcHandler::LATEST_PROTOCOL_VERSION,
+            $response['result']['protocolVersion'],
+        );
+    }
+
+    public function testInitializeEchoesNewerSupportedClientVersion(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => ['protocolVersion' => '2025-06-18'],
+        ])), true);
+
+        $this->assertSame('2025-06-18', $response['result']['protocolVersion']);
+    }
+
+    public function testInitializeWithoutClientVersionFallsBackToLatest(): void
+    {
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'initialize',
+            'params' => [],
+        ])), true);
+
+        $this->assertSame(
+            JsonRpcHandler::LATEST_PROTOCOL_VERSION,
+            $response['result']['protocolVersion'],
+        );
     }
 
     public function testInitializeCapabilitiesOnlyIncludeToolsByDefault(): void

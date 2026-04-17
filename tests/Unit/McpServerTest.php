@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Tests\Unit;
 
 use Phpnl\Mcp\McpServer;
+use Phpnl\Mcp\Protocol\JsonRpcHandler;
 use Phpnl\Mcp\Tests\TestCase;
 use Phpnl\Mcp\Transport\TransportInterface;
 
@@ -93,7 +94,7 @@ final class McpServerTest extends TestCase
 
         $this->assertCount(1, $transport->getWritten());
         $decoded = json_decode($transport->getWritten()[0], true);
-        $this->assertSame('2024-11-05', $decoded['result']['protocolVersion']);
+        $this->assertSame(JsonRpcHandler::LATEST_PROTOCOL_VERSION, $decoded['result']['protocolVersion']);
     }
 
     public function testServeSkipsWriteWhenHandlerReturnsNull(): void

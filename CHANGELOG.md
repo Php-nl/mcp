@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-04-17
+
 ### Added
 
 - **HTTP + SSE Transport** (`HttpSseTransport`) — run the MCP server as a plain PHP process that speaks HTTP and Server-Sent Events, suitable for web-based clients and remote deployments. Supports custom host/port/paths, a `baseUrl` override for reverse-proxy setups, and automatic CORS headers.
@@ -34,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `PromptRegistry` — handles `prompts/list` and `prompts/get`.
 - `McpServer::VERSION` constant (replaces hardcoded version string).
 - `ServerProcess::handshake()` — centralised MCP initialize/notifications flow.
-- Protocol version validation in `initialize`: returns `InvalidParams` error on mismatch.
+- Protocol version negotiation in `initialize`: server now advertises support for `2024-11-05`, `2025-03-26`, and `2025-06-18`. When the client requests a supported version it is echoed back; when it requests an unsupported version the server replies with its own latest version (per MCP spec) instead of returning an `InvalidParams` error. Exposed via `JsonRpcHandler::SUPPORTED_PROTOCOL_VERSIONS` and `JsonRpcHandler::LATEST_PROTOCOL_VERSION`.
 - `capabilities` in `initialize` response only advertises `resources`/`prompts` when at least one is registered.
 - JSON Schema type mapping in `Tool::schema()`: `int`→`integer`, `float`→`number`, `bool`→`boolean`, `array`→`array`.
 - Support for optional handler parameters: excluded from `inputSchema.required`.
