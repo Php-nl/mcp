@@ -54,6 +54,72 @@ Add to your Claude Desktop `claude_desktop_config.json`:
 
 Restart Claude Desktop — your PHP tools appear automatically. ✅
 
+## HTTP + SSE Transport
+
+The default transport uses STDIN/STDOUT and is ideal for local CLI-based MCP clients like Claude Desktop. For web-based clients or browser integrations, use the `HttpSseTransport` instead.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+require 'vendor/autoload.php';
+
+use Phpnl\Mcp\McpServer;
+use Phpnl\Mcp\Transport\HttpSseTransport;
+
+$transport = new HttpSseTransport(port: 8080);
+
+echo "MCP server listening on http://localhost:8080/sse\n";
+
+McpServer::make($transport)
+    ->tool('hello', 'Returns a greeting', fn (): string => 'Hello from PHP!')
+    ->serve();
+```
+
+Start the server:
+
+```bash
+php server.php
+```
+
+The transport exposes two endpoints:
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/sse` | `GET` | Client connects here and receives a Server-Sent Events stream. The first event is an `endpoint` event pointing to the POST URL. |
+| `/message` | `POST` | Client sends JSON-RPC messages here. Responses arrive via the SSE stream. |
+
+### Configuration options
+
+```php
+new HttpSseTransport(
+    host: '0.0.0.0',          // Interface to bind (default: 0.0.0.0)
+    port: 8080,                // TCP port (default: 8080)
+    ssePath: '/sse',           // SSE endpoint path (default: /sse)
+    messagePath: '/message',   // POST endpoint path (default: /message)
+    baseUrl: null,             // Override the public URL in the endpoint event.
+                               // Set this when running behind a reverse proxy,
+                               // e.g. 'https://my-server.example.com'
+);
+```
+
+### CORS
+
+All responses include `Access-Control-Allow-Origin: *` and CORS preflight (`OPTIONS`) requests are handled automatically, so browser-based MCP clients work out of the box.
+
+### Reverse proxy
+
+When deploying behind nginx or another reverse proxy, set `baseUrl` to the public-facing URL so clients receive the correct endpoint:
+
+```php
+$transport = new HttpSseTransport(
+    host: '127.0.0.1',
+    port: 9000,
+    baseUrl: 'https://api.example.com',
+);
+```
+
 ## Developer CLI
 
 ```bash
@@ -80,6 +146,13 @@ Restart Claude Desktop — your PHP tools appear automatically. ✅
 | `prompts/list` | ✅ |
 | `prompts/get` | ✅ |
 | `notifications/initialized` | ✅ |
+
+## Transports
+
+| Transport | Class | Use case |
+|-----------|-------|----------|
+| STDIN/STDOUT | `StdioTransport` *(default)* | Claude Desktop and other local CLI clients |
+| HTTP + SSE | `HttpSseTransport` | Web-based clients, browser integrations, remote deployments |
 
 ## Requirements
 
