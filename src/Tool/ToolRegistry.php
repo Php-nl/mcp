@@ -62,7 +62,6 @@ final class ToolRegistry
         $tool = $this->tools[$name];
         $tool->validate($arguments);
 
-        /** @var \Closure(string, array<string, mixed>): mixed $pipeline */
         $pipeline = static function (string $n, array $args) use ($tool): mixed {
             return $tool->call($args);
         };

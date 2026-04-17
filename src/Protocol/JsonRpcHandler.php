@@ -8,6 +8,7 @@ use Phpnl\Mcp\McpServer;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Resource\ResourceRegistry;
 use Phpnl\Mcp\Tool\ToolRegistry;
+use Phpnl\Mcp\Tool\ToolResult;
 
 final class JsonRpcHandler
 {
@@ -106,11 +107,11 @@ final class JsonRpcHandler
         try {
             $result = $this->toolRegistry->call($name, $arguments);
 
-            return $this->successResponse($message->id, [
-                'content' => [
-                    ['type' => 'text', 'text' => (string) $result],
-                ],
-            ]);
+            $content = $result instanceof ToolResult
+                ? $result->toContent()
+                : [['type' => 'text', 'text' => (string) $result]];
+
+            return $this->successResponse($message->id, ['content' => $content]);
         } catch (\RuntimeException $exception) {
             $code = ErrorCode::tryFrom($exception->getCode()) ?? ErrorCode::ToolNotFound;
 
