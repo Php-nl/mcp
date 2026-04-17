@@ -1,0 +1,6 @@
+# Uncomment and configure the platforms the project wants to accept funding from.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# github: [phpnl]
+# open_collective: phpnl
+# custom: ["https://php.nl"]

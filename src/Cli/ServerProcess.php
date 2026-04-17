@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Cli;
 
+use Phpnl\Mcp\McpServer;
 use Phpnl\Mcp\Protocol\JsonRpcHandler;
 
 final class ServerProcess
@@ -104,7 +105,7 @@ final class ServerProcess
             'params' => [
                 'protocolVersion' => JsonRpcHandler::LATEST_PROTOCOL_VERSION,
                 'capabilities' => new \stdClass(),
-                'clientInfo' => ['name' => 'phpnl-cli', 'version' => '1.0.0'],
+                'clientInfo' => ['name' => 'phpnl-cli', 'version' => McpServer::VERSION],
             ],
         ]);
 

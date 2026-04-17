@@ -14,7 +14,7 @@ use Phpnl\Mcp\Transport\TransportInterface;
 
 final class McpServer
 {
-    public const VERSION = '1.0.0';
+    public const VERSION = '0.1.0';
 
     private readonly ToolRegistry $toolRegistry;
     private readonly ResourceRegistry $resourceRegistry;
