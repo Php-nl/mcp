@@ -53,8 +53,19 @@ final class ServerProcess
         while (microtime(true) - $start < $timeout) {
             $line = fgets($this->pipes[1]);
 
-            if ($line !== false && trim($line) !== '') {
-                return json_decode(trim($line), true);
+            if ($line !== false) {
+                $trimmed = trim($line);
+
+                if ($trimmed !== '') {
+                    /** @var array<string, mixed>|null $decoded */
+                    $decoded = json_decode($trimmed, true);
+
+                    if (is_array($decoded)) {
+                        return $decoded;
+                    }
+
+                    // Skip non-JSON lines (e.g. PHP notices printed to stdout)
+                }
             }
 
             usleep(10_000);

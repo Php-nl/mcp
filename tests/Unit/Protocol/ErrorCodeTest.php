@@ -17,6 +17,8 @@ final class ErrorCodeTest extends TestCase
         $this->assertSame(-32602, ErrorCode::InvalidParams->value);
         $this->assertSame(-32603, ErrorCode::InternalError->value);
         $this->assertSame(-32000, ErrorCode::ToolNotFound->value);
+        $this->assertSame(-32001, ErrorCode::ResourceNotFound->value);
+        $this->assertSame(-32002, ErrorCode::PromptNotFound->value);
     }
 
     public function testMessages(): void
@@ -27,5 +29,7 @@ final class ErrorCodeTest extends TestCase
         $this->assertSame('Invalid params', ErrorCode::InvalidParams->message());
         $this->assertSame('Internal error', ErrorCode::InternalError->message());
         $this->assertSame('Tool not found', ErrorCode::ToolNotFound->message());
+        $this->assertSame('Resource not found', ErrorCode::ResourceNotFound->message());
+        $this->assertSame('Prompt not found', ErrorCode::PromptNotFound->message());
     }
 }

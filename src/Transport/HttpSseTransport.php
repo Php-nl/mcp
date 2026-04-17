@@ -49,7 +49,9 @@ final class HttpSseTransport implements TransportInterface
          * Defaults to http://<host>:<port> (replacing 0.0.0.0 with 127.0.0.1).
          */
         private readonly ?string $baseUrl = null,
-    ) {}
+    ) {
+        $this->boot();
+    }
 
     public function read(): ?string
     {

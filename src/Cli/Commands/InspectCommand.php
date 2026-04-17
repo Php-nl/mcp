@@ -77,7 +77,8 @@ final class InspectCommand
         $parts = [];
 
         foreach ($properties as $name => $def) {
-            $type = is_array($def) ? (string) $def['type'] : 'string';
+            $rawType = is_array($def) ? ($def['type'] ?? 'string') : 'string';
+            $type = is_array($rawType) ? implode('|', $rawType) : (string) $rawType;
             $parts[] = "{$name} ({$type})";
         }
 

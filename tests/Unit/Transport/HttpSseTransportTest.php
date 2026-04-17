@@ -239,8 +239,20 @@ final class HttpSseTransportTest extends TestCase
 
         fclose($second); // @phpstan-ignore-line
 
-        // First socket should be closed by now (server closed it on reconnect)
-        // Reading from it should return false or empty
+        // First socket should be closed by now (server closed it on reconnect).
+        // Drain any data that was buffered before the server closed its end
+        // (SSE headers + endpoint event arrive before the close propagates).
+        stream_set_blocking($first, false); // @phpstan-ignore-line
+        $deadline = microtime(true) + 1.0;
+        while (microtime(true) < $deadline) {
+            $chunk = @fread($first, 4096); // @phpstan-ignore-line
+            if ($chunk === false || $chunk === '') {
+                break;
+            }
+        }
+        stream_set_blocking($first, true); // @phpstan-ignore-line
+
+        // Now a blocking read must return false or '' (EOF — server side is gone)
         $data = @fread($first, 1); // @phpstan-ignore-line
         $this->assertTrue($data === false || $data === '');
 
