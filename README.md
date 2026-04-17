@@ -1,5 +1,10 @@
 # phpnl/mcp
 
+[![CI](https://github.com/phpnl/mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/phpnl/mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/phpnl/mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/phpnl/mcp)
+[![Latest Version](https://img.shields.io/packagist/v/phpnl/mcp.svg)](https://packagist.org/packages/phpnl/mcp)
+[![License](https://img.shields.io/packagist/l/phpnl/mcp.svg)](LICENSE)
+
 A framework-agnostic PHP SDK for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io). Connect your PHP application to AI models like Claude in minutes — zero runtime dependencies.
 
 ```bash
