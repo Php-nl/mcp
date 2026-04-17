@@ -50,27 +50,41 @@ final class ServerProcess
      */
     public function receive(float $timeout = 2.0): ?array
     {
-        $start = microtime(true);
+        $deadline = microtime(true) + $timeout;
 
-        while (microtime(true) - $start < $timeout) {
-            $line = fgets($this->pipes[1]);
+        while (($remaining = $deadline - microtime(true)) > 0.0) {
+            $read = [$this->pipes[1]];
+            $write = null;
+            $except = null;
+            // Cap each select wait at 100 ms so the deadline is checked regularly.
+            $waitSec = 0;
+            $waitUsec = (int) min($remaining * 1_000_000, 100_000);
 
-            if ($line !== false) {
-                $trimmed = trim($line);
+            $changed = @stream_select($read, $write, $except, $waitSec, $waitUsec);
 
-                if ($trimmed !== '') {
-                    /** @var array<string, mixed>|null $decoded */
-                    $decoded = json_decode($trimmed, true);
-
-                    if (is_array($decoded)) {
-                        return $decoded;
-                    }
-
-                    // Skip non-JSON lines (e.g. PHP notices printed to stdout)
-                }
+            if ($changed === false || $changed === 0) {
+                continue; // timeout slice expired — check deadline and retry
             }
 
-            usleep(10_000);
+            $line = fgets($this->pipes[1]);
+
+            if ($line === false) {
+                // EOF or error on the pipe — subprocess exited
+                break;
+            }
+
+            $trimmed = trim($line);
+
+            if ($trimmed !== '') {
+                /** @var array<string, mixed>|null $decoded */
+                $decoded = json_decode($trimmed, true);
+
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+
+                // Skip non-JSON lines (e.g. PHP notices printed to stdout)
+            }
         }
 
         return null;

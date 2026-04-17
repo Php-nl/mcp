@@ -85,19 +85,10 @@ final class HttpSseTransportTest extends TestCase
         // Now the transport's sseSocket is set — write a message
         $transport->write('{"jsonrpc":"2.0","id":42,"result":{}}');
 
-        // The client should receive an SSE data frame
+        // The client should receive an SSE data frame.
+        // Use readUntil so we don't stop early on the endpoint event's own "\n\n".
         stream_set_timeout($sseSocket, 2); // @phpstan-ignore-line
-        $received = '';
-
-        while (!str_contains($received, "\n\n")) {
-            $chunk = fread($sseSocket, 4096); // @phpstan-ignore-line
-
-            if ($chunk === false || $chunk === '') {
-                break;
-            }
-
-            $received .= $chunk;
-        }
+        $received = $this->readUntil($sseSocket, '"id":42');
 
         $this->assertStringContainsString('data: {"jsonrpc":"2.0","id":42,"result":{}}', $received);
 
@@ -603,11 +594,14 @@ final class HttpSseTransportTest extends TestCase
     }
 
     /**
-     * Drives the transport's internal accept/select loop for a fixed number of
-     * iterations. Uses reflection to manually trigger socket acceptance without
-     * blocking in the read() loop.
+     * Drives the transport's internal accept/select loop until the expected
+     * number of connections have been dispatched, or the iteration budget runs out.
+     *
+     * Uses reflection to manually trigger socket acceptance without blocking in
+     * the read() loop. Exits as soon as all expected connections are handled so
+     * tests don't spend time in idle sleeps after the work is done.
      */
-    private function driveTransport(HttpSseTransport $transport, int $iterations): void
+    private function driveTransport(HttpSseTransport $transport, int $iterations, int $connections = 1): void
     {
         $ref = new \ReflectionClass($transport);
 
@@ -623,10 +617,13 @@ final class HttpSseTransportTest extends TestCase
             $inboxProp->setValue($transport, []);
         }
 
+        $dispatched = 0;
+
         for ($i = 0; $i < $iterations; $i++) {
             $serverSocket = $serverProp->getValue($transport);
 
             if ($serverSocket === null) {
+                usleep(2_000);
                 continue;
             }
 
@@ -634,10 +631,11 @@ final class HttpSseTransportTest extends TestCase
             $write = null;
             $except = null;
 
+            // Poll with a 50 ms window — reliable on loopback even under load.
             $changed = @stream_select($read, $write, $except, 0, 50_000);
 
             if ($changed === false || $changed === 0) {
-                usleep(20_000);
+                usleep(2_000);
                 continue;
             }
 
@@ -649,11 +647,15 @@ final class HttpSseTransportTest extends TestCase
                         $dispatch = $ref->getMethod('dispatch');
                         $dispatch->setAccessible(true);
                         $dispatch->invoke($transport, $client);
+                        $dispatched++;
                     }
                 }
             }
 
-            usleep(20_000);
+            if ($dispatched >= $connections) {
+                usleep(20_000); // allow OS to deliver written data to client receive buffer
+                return; // all expected connections handled — exit immediately
+            }
         }
     }
 }
