@@ -8,6 +8,7 @@ use Phpnl\Mcp\Protocol\ErrorCode;
 use Phpnl\Mcp\Protocol\JsonRpcHandler;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Resource\ResourceRegistry;
+use Phpnl\Mcp\Tool\ProgressReporter;
 use Phpnl\Mcp\Tool\ToolRegistry;
 use Phpnl\Mcp\Tool\ToolResult;
 use PHPUnit\Framework\TestCase;
@@ -480,5 +481,107 @@ final class JsonRpcHandlerTest extends TestCase
         $content = $response['result']['content'];
         $this->assertSame('text', $content[0]['type']);
         $this->assertSame('pong', $content[0]['text']);
+    }
+
+    // -------------------------------------------------------------------------
+    // Progress notifications
+    // -------------------------------------------------------------------------
+
+    public function testProgressNotificationsAreSentWhenTokenPresent(): void
+    {
+        $written = [];
+        $handler = new JsonRpcHandler(
+            $this->toolRegistry,
+            $this->resourceRegistry,
+            $this->promptRegistry,
+            function (string $msg) use (&$written): void {
+                $written[] = json_decode($msg, true);
+            },
+        );
+
+        $this->toolRegistry->register(
+            'process',
+            'Processes items',
+            function (ProgressReporter $progress): string {
+                $progress->report(1, 3);
+                $progress->report(2, 3);
+                $progress->report(3, 3);
+
+                return 'done';
+            },
+        );
+
+        $response = json_decode($handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 40,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'process',
+                'arguments' => [],
+                '_meta' => ['progressToken' => 'token-xyz'],
+            ],
+        ])), true);
+
+        // Final response contains the result
+        $this->assertSame('done', $response['result']['content'][0]['text']);
+
+        // Three progress notifications were sent out-of-band
+        $this->assertCount(3, $written);
+        $this->assertSame('notifications/progress', $written[0]['method']);
+        $this->assertSame('token-xyz', $written[0]['params']['progressToken']);
+        $this->assertSame(1, $written[0]['params']['progress']);
+        $this->assertSame(3, $written[0]['params']['total']);
+        $this->assertSame(3, $written[2]['params']['progress']);
+    }
+
+    public function testNoProgressNotificationsWhenTokenAbsent(): void
+    {
+        $written = [];
+        $handler = new JsonRpcHandler(
+            $this->toolRegistry,
+            $this->resourceRegistry,
+            $this->promptRegistry,
+            function (string $msg) use (&$written): void {
+                $written[] = $msg;
+            },
+        );
+
+        $this->toolRegistry->register(
+            'silent',
+            'Runs silently',
+            function (ProgressReporter $progress): string {
+                $progress->report(1, 1); // should be a no-op
+                return 'ok';
+            },
+        );
+
+        $handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 41,
+            'method' => 'tools/call',
+            'params' => ['name' => 'silent', 'arguments' => []],
+        ]));
+
+        $this->assertEmpty($written);
+    }
+
+    public function testProgressReporterParameterNotVisibleInToolsList(): void
+    {
+        $this->toolRegistry->register(
+            'search',
+            'Searches data',
+            fn (string $query, ProgressReporter $progress): string => $query,
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 42,
+            'method' => 'tools/list',
+            'params' => [],
+        ])), true);
+
+        $schema = $response['result']['tools'][0]['inputSchema'];
+        $this->assertArrayHasKey('query', $schema['properties']);
+        $this->assertArrayNotHasKey('progress', $schema['properties']);
     }
 }

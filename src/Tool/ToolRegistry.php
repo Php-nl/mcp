@@ -50,7 +50,7 @@ final class ToolRegistry
     /**
      * @param array<string, mixed> $arguments
      */
-    public function call(string $name, array $arguments): mixed
+    public function call(string $name, array $arguments, ?ProgressReporter $reporter = null): mixed
     {
         if (! isset($this->tools[$name])) {
             throw new ToolNotFoundException($name);
@@ -59,8 +59,10 @@ final class ToolRegistry
         $tool = $this->tools[$name];
         $tool->validate($arguments);
 
-        $pipeline = static function (string $n, array $args) use ($tool): mixed {
-            return $tool->call($args);
+        $reporter ??= new ProgressReporter(null, static fn () => null);
+
+        $pipeline = static function (string $n, array $args) use ($tool, $reporter): mixed {
+            return $tool->call($args, $reporter);
         };
 
         foreach (array_reverse($this->middleware) as $layer) {

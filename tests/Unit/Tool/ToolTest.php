@@ -7,6 +7,7 @@ namespace Phpnl\Mcp\Tests\Unit\Tool;
 use Phpnl\Mcp\Exception\InvalidToolArgumentsException;
 use Phpnl\Mcp\Tests\TestCase;
 use Phpnl\Mcp\Tool\Description;
+use Phpnl\Mcp\Tool\ProgressReporter;
 use Phpnl\Mcp\Tool\Tool;
 
 final class ToolTest extends TestCase
@@ -248,5 +249,75 @@ final class ToolTest extends TestCase
         } catch (\RuntimeException $e) {
             $this->assertSame(\Phpnl\Mcp\Protocol\ErrorCode::InvalidParams->value, $e->getCode());
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // ProgressReporter injection
+    // -------------------------------------------------------------------------
+
+    public function testProgressReporterParameterIsSkippedInSchema(): void
+    {
+        $tool = new Tool(
+            'search',
+            'Searches',
+            fn (string $query, ProgressReporter $progress): string => $query,
+        );
+
+        $schema = $tool->schema();
+
+        $this->assertArrayHasKey('query', $schema['properties']);
+        $this->assertArrayNotHasKey('progress', $schema['properties']);
+        $this->assertContains('query', $schema['required']);
+        $this->assertNotContains('progress', $schema['required']);
+    }
+
+    public function testProgressReporterIsInjectedDuringCall(): void
+    {
+        $injectedReporter = null;
+        $tool = new Tool(
+            'work',
+            'Does work',
+            function (ProgressReporter $progress) use (&$injectedReporter): string {
+                $injectedReporter = $progress;
+
+                return 'done';
+            },
+        );
+
+        $reporter = new ProgressReporter(null, fn () => null);
+        $result = $tool->call([], $reporter);
+
+        $this->assertSame('done', $result);
+        $this->assertSame($reporter, $injectedReporter);
+    }
+
+    public function testProgressReporterIsInjectedAlongsideRegularArguments(): void
+    {
+        $reportedValues = [];
+        $tool = new Tool(
+            'count',
+            'Counts',
+            function (int $n, ProgressReporter $progress) use (&$reportedValues): string {
+                for ($i = 1; $i <= $n; $i++) {
+                    $progress->report($i, $n);
+                    $reportedValues[] = $i;
+                }
+
+                return "counted {$n}";
+            },
+        );
+
+        $written = [];
+        $reporter = new ProgressReporter('tok', function (string $msg) use (&$written): void {
+            $written[] = json_decode($msg, true);
+        });
+
+        $result = $tool->call(['n' => 3], $reporter);
+
+        $this->assertSame('counted 3', $result);
+        $this->assertCount(3, $written);
+        $this->assertSame(1, $written[0]['params']['progress']);
+        $this->assertSame(2, $written[1]['params']['progress']);
+        $this->assertSame(3, $written[2]['params']['progress']);
     }
 }

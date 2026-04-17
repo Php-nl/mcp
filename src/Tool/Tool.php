@@ -26,6 +26,11 @@ final readonly class Tool
         $required = [];
 
         foreach ($reflection->getParameters() as $parameter) {
+            // Injected by the SDK — not part of the public input schema.
+            if ($this->isProgressReporterParameter($parameter)) {
+                continue;
+            }
+
             $name = $parameter->getName();
             $property = ['type' => $this->resolveJsonSchemaType($parameter->getType())];
 
@@ -86,17 +91,32 @@ final readonly class Tool
     /**
      * @param array<string, mixed> $arguments
      */
-    public function call(array $arguments): mixed
+    public function call(array $arguments, ?ProgressReporter $reporter = null): mixed
     {
+        $reporter ??= new ProgressReporter(null, static fn () => null);
         $reflection = new \ReflectionFunction($this->handler);
 
         $ordered = array_map(
-            fn (\ReflectionParameter $parameter) => $arguments[$parameter->getName()]
-                ?? ($parameter->isOptional() ? $parameter->getDefaultValue() : null),
+            function (\ReflectionParameter $parameter) use ($arguments, $reporter): mixed {
+                if ($this->isProgressReporterParameter($parameter)) {
+                    return $reporter;
+                }
+
+                return $arguments[$parameter->getName()]
+                    ?? ($parameter->isOptional() ? $parameter->getDefaultValue() : null);
+            },
             $reflection->getParameters(),
         );
 
         return ($this->handler)(...$ordered);
+    }
+
+    private function isProgressReporterParameter(\ReflectionParameter $parameter): bool
+    {
+        $type = $parameter->getType();
+
+        return $type instanceof \ReflectionNamedType
+            && $type->getName() === ProgressReporter::class;
     }
 
     /**

@@ -4,20 +4,27 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Protocol;
 
+use Closure;
 use Phpnl\Mcp\Exception\McpException;
 use Phpnl\Mcp\McpServer;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Resource\ResourceRegistry;
+use Phpnl\Mcp\Tool\ProgressReporter;
 use Phpnl\Mcp\Tool\ToolRegistry;
 use Phpnl\Mcp\Tool\ToolResult;
 
 final class JsonRpcHandler
 {
+    /** @var Closure(string): void */
+    private readonly Closure $writer;
+
     public function __construct(
         private readonly ToolRegistry $toolRegistry,
         private readonly ResourceRegistry $resourceRegistry,
         private readonly PromptRegistry $promptRegistry,
+        ?Closure $writer = null,
     ) {
+        $this->writer = $writer ?? static fn (string $_) => null;
     }
 
     public function handle(string $rawMessage): ?string
@@ -106,8 +113,11 @@ final class JsonRpcHandler
             return $this->errorResponse($message->id, ErrorCode::InvalidParams);
         }
 
+        $progressToken = $message->params['_meta']['progressToken'] ?? null;
+        $reporter = new ProgressReporter($progressToken, $this->writer);
+
         try {
-            $result = $this->toolRegistry->call($name, $arguments);
+            $result = $this->toolRegistry->call($name, $arguments, $reporter);
 
             $content = $result instanceof ToolResult
                 ? $result->toContent()

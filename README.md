@@ -178,6 +178,53 @@ If the AI omits `subject`, the response will be:
 {"error": {"code": -32602, "message": "Invalid params", "data": "Missing required argument: subject"}}
 ```
 
+## Progress Notifications
+
+For long-running tools you can report progress back to the client so it knows the tool is still working. Add a `ProgressReporter` parameter to your handler — it is automatically injected by the SDK and does **not** appear in the tool's JSON Schema.
+
+```php
+use Phpnl\Mcp\Tool\ProgressReporter;
+
+McpServer::make()
+    ->tool(
+        name: 'import_data',
+        description: 'Imports a large dataset',
+        handler: function (string $source, ProgressReporter $progress): string {
+            $rows = fetchRows($source);
+            $total = count($rows);
+
+            foreach ($rows as $i => $row) {
+                processRow($row);
+                $progress->report($i + 1, $total); // current, total
+            }
+
+            return "Imported {$total} rows.";
+        },
+    )
+    ->serve();
+```
+
+The client sends a `progressToken` in `_meta` when it wants progress updates:
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "import_data",
+    "arguments": {"source": "https://example.com/data.csv"},
+    "_meta": {"progressToken": "import-1"}
+  }
+}
+```
+
+During execution the server sends out-of-band `notifications/progress` messages:
+
+```json
+{"method": "notifications/progress", "params": {"progressToken": "import-1", "progress": 42, "total": 1000}}
+```
+
+When no `progressToken` is present, all `$progress->report()` calls are silently ignored (no-op), so the same handler works for both streaming and non-streaming clients.
+
 ## Exception Handling
 
 All MCP-specific errors are thrown as typed exceptions that extend `McpException` (which itself extends `\RuntimeException`).

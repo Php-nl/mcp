@@ -82,6 +82,7 @@ final class McpServer
             $this->toolRegistry,
             $this->resourceRegistry,
             $this->promptRegistry,
+            fn (string $msg) => $this->transport->write($msg),
         );
 
         while (true) {
