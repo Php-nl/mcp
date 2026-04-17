@@ -16,7 +16,8 @@ final class JsonRpcHandler
         private readonly ToolRegistry $toolRegistry,
         private readonly ResourceRegistry $resourceRegistry,
         private readonly PromptRegistry $promptRegistry,
-    ) {}
+    ) {
+    }
 
     public function handle(string $rawMessage): ?string
     {

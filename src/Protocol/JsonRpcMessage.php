@@ -15,7 +15,8 @@ final readonly class JsonRpcMessage
         public mixed $result,
         /** @var array<string, mixed>|null */
         public ?array $error,
-    ) {}
+    ) {
+    }
 
     /**
      * @param array<string, mixed> $data

@@ -9,6 +9,7 @@ use Phpnl\Mcp\Protocol\JsonRpcHandler;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Resource\ResourceRegistry;
 use Phpnl\Mcp\Tool\ToolRegistry;
+use Phpnl\Mcp\Tool\ToolResult;
 use PHPUnit\Framework\TestCase;
 
 final class JsonRpcHandlerTest extends TestCase
@@ -377,5 +378,107 @@ final class JsonRpcHandlerTest extends TestCase
         ])), true);
 
         $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+    }
+
+    public function testHandlesToolsCallWithToolResultText(): void
+    {
+        $this->toolRegistry->register(
+            'greet',
+            'Greets',
+            fn (string $name): ToolResult => ToolResult::text("Hello, {$name}!"),
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 30,
+            'method' => 'tools/call',
+            'params' => ['name' => 'greet', 'arguments' => ['name' => 'PHP']],
+        ])), true);
+
+        $content = $response['result']['content'];
+        $this->assertCount(1, $content);
+        $this->assertSame('text', $content[0]['type']);
+        $this->assertSame('Hello, PHP!', $content[0]['text']);
+    }
+
+    public function testHandlesToolsCallWithToolResultImage(): void
+    {
+        $this->toolRegistry->register(
+            'chart',
+            'Returns a chart',
+            fn (): ToolResult => ToolResult::image('abc123==', 'image/png'),
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 31,
+            'method' => 'tools/call',
+            'params' => ['name' => 'chart', 'arguments' => []],
+        ])), true);
+
+        $content = $response['result']['content'];
+        $this->assertCount(1, $content);
+        $this->assertSame('image', $content[0]['type']);
+        $this->assertSame('abc123==', $content[0]['data']);
+        $this->assertSame('image/png', $content[0]['mimeType']);
+    }
+
+    public function testHandlesToolsCallWithToolResultResource(): void
+    {
+        $this->toolRegistry->register(
+            'config',
+            'Returns config',
+            fn (): ToolResult => ToolResult::resource('file://app.json', '{"env":"prod"}', 'application/json'),
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 32,
+            'method' => 'tools/call',
+            'params' => ['name' => 'config', 'arguments' => []],
+        ])), true);
+
+        $content = $response['result']['content'];
+        $this->assertCount(1, $content);
+        $this->assertSame('resource', $content[0]['type']);
+        $this->assertSame('file://app.json', $content[0]['resource']['uri']);
+        $this->assertSame('{"env":"prod"}', $content[0]['resource']['text']);
+    }
+
+    public function testHandlesToolsCallWithMultipleContentItems(): void
+    {
+        $this->toolRegistry->register(
+            'report',
+            'Returns a report with image',
+            fn (): ToolResult => ToolResult::text('See chart below:')->withImage('data==', 'image/jpeg'),
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 33,
+            'method' => 'tools/call',
+            'params' => ['name' => 'report', 'arguments' => []],
+        ])), true);
+
+        $content = $response['result']['content'];
+        $this->assertCount(2, $content);
+        $this->assertSame('text', $content[0]['type']);
+        $this->assertSame('image', $content[1]['type']);
+    }
+
+    public function testStringResultStillWrappedAsTextForBackwardCompatibility(): void
+    {
+        $this->toolRegistry->register('ping', 'Ping', fn (): string => 'pong');
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 34,
+            'method' => 'tools/call',
+            'params' => ['name' => 'ping', 'arguments' => []],
+        ])), true);
+
+        $content = $response['result']['content'];
+        $this->assertSame('text', $content[0]['type']);
+        $this->assertSame('pong', $content[0]['text']);
     }
 }

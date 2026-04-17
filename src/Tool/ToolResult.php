@@ -38,7 +38,8 @@ final readonly class ToolResult
     /** @param list<array<string, mixed>> $content */
     private function __construct(
         private array $content,
-    ) {}
+    ) {
+    }
 
     /**
      * Creates a result with a single text content item.

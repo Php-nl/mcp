@@ -11,7 +11,9 @@ final class ServerProcess
     /** @var array<int, resource> */
     private array $pipes = [];
 
-    public function __construct(private readonly string $serverScript) {}
+    public function __construct(private readonly string $serverScript)
+    {
+    }
 
     public function start(): void
     {

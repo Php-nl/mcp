@@ -156,12 +156,14 @@ final class McpServerTest extends TestCase
 
     private function makeFakeTransport(array $messages): object
     {
-        return new class($messages) implements TransportInterface {
+        return new class ($messages) implements TransportInterface {
             private int $index = 0;
 
             private array $written = [];
 
-            public function __construct(private readonly array $messages) {}
+            public function __construct(private readonly array $messages)
+            {
+            }
 
             public function read(): ?string
             {

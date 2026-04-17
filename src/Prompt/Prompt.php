@@ -12,5 +12,6 @@ final readonly class Prompt
         public string $name,
         public string $description,
         public Closure $handler,
-    ) {}
+    ) {
+    }
 }

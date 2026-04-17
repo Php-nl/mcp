@@ -5,7 +5,6 @@ declare(strict_types=1);
 require __DIR__ . '/../../vendor/autoload.php';
 
 use Phpnl\Mcp\McpServer;
-use Phpnl\Mcp\Tool\Description;
 
 McpServer::make()
     ->tool(

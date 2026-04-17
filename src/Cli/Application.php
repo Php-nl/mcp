@@ -18,7 +18,8 @@ final class Application
         private readonly CallCommand $callCommand = new CallCommand(),
         private readonly ReadCommand $readCommand = new ReadCommand(),
         private readonly PromptCommand $promptCommand = new PromptCommand(),
-    ) {}
+    ) {
+    }
 
     /**
      * @param array<int, string> $argv

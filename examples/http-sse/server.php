@@ -29,7 +29,7 @@ $transport = new HttpSseTransport(
     messagePath: '/message',
 );
 
-echo "MCP HTTP/SSE server listening on http://localhost:8080/sse" . PHP_EOL;
+echo 'MCP HTTP/SSE server listening on http://localhost:8080/sse' . PHP_EOL;
 
 McpServer::make($transport)
     ->tool(

@@ -13,7 +13,8 @@ final readonly class Tool
         public string $name,
         public string $description,
         public Closure $handler,
-    ) {}
+    ) {
+    }
 
     /**
      * @return array<string, mixed>

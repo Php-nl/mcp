@@ -13,5 +13,6 @@ final readonly class Resource
         public string $name,
         public string $mimeType,
         public Closure $handler,
-    ) {}
+    ) {
+    }
 }

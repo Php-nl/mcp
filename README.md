@@ -120,6 +120,41 @@ $transport = new HttpSseTransport(
 );
 ```
 
+## Rich Tool Results
+
+By default a tool handler returns a plain string, which is sent to the client as a text content item. For richer responses — images, embedded resources, or multiple mixed items — return a `ToolResult` instead.
+
+```php
+use Phpnl\Mcp\Tool\ToolResult;
+
+McpServer::make()
+    // Plain text (most common — string handlers still work too)
+    ->tool('summarize', 'Summarizes text', fn (string $text): ToolResult =>
+        ToolResult::text("Summary: {$text}")
+    )
+
+    // Image (e.g. a generated chart)
+    ->tool('chart', 'Renders a bar chart', function (array $data): ToolResult {
+        $png = renderChart($data); // returns raw PNG bytes
+        return ToolResult::image(base64_encode($png), 'image/png');
+    })
+
+    // Text + image combined
+    ->tool('report', 'Full report with chart', function (): ToolResult {
+        return ToolResult::text('Monthly revenue: €12,400')
+            ->withImage(base64_encode(renderChart()), 'image/png');
+    })
+
+    // Embedded resource
+    ->tool('get_config', 'Returns app config', function (): ToolResult {
+        $json = file_get_contents('config.json');
+        return ToolResult::resource('file://config.json', $json, 'application/json');
+    })
+    ->serve();
+```
+
+`ToolResult` is immutable. The `with*()` methods append a new content item and return a new instance, so you can chain as many items as needed.
+
 ## Input Validation
 
 Arguments sent by the AI are automatically validated against the tool's JSON Schema before the handler is invoked. If a required argument is missing or has the wrong type, a `InvalidParams` error is returned to the client without ever calling your handler.
