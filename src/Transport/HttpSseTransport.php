@@ -61,7 +61,7 @@ final class HttpSseTransport implements TransportInterface
 
         while (empty($this->inbox)) {
             /** @var list<resource> $read */
-            $read = [$this->serverSocket]; // @phpstan-ignore-line
+            $read = [$this->serverSocket];
 
             if ($this->sseSocket !== null) {
                 $read[] = $this->sseSocket;
@@ -79,7 +79,7 @@ final class HttpSseTransport implements TransportInterface
 
             foreach ($read as $socket) {
                 if ($socket === $this->serverSocket) {
-                    $client = @stream_socket_accept($this->serverSocket, 0); // @phpstan-ignore-line
+                    $client = @stream_socket_accept($this->serverSocket, 0);
 
                     if ($client !== false) {
                         $this->dispatch($client);

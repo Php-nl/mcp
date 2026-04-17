@@ -115,6 +115,45 @@ final class McpServerTest extends TestCase
         $this->assertEmpty($transport->getWritten());
     }
 
+    public function testMiddlewareReturnsSelf(): void
+    {
+        $transport = $this->makeFakeTransport([]);
+        $server = McpServer::make($transport);
+
+        $result = $server->middleware(fn (string $name, array $args, callable $next): mixed => $next($name, $args));
+
+        $this->assertSame($server, $result);
+    }
+
+    public function testMiddlewareIsInvokedDuringToolCall(): void
+    {
+        $called = false;
+
+        $toolCallMessage = json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'tools/call',
+            'params' => ['name' => 'ping', 'arguments' => []],
+        ]);
+
+        $transport = $this->makeFakeTransport([$toolCallMessage]);
+
+        $server = McpServer::make($transport);
+        $server->tool('ping', 'Returns pong', fn (): string => 'pong');
+        $server->middleware(function (string $name, array $args, callable $next) use (&$called): mixed {
+            $called = true;
+
+            return $next($name, $args);
+        });
+
+        try {
+            $server->serve();
+        } catch (\OverflowException) {
+        }
+
+        $this->assertTrue($called);
+    }
+
     private function makeFakeTransport(array $messages): object
     {
         return new class($messages) implements TransportInterface {

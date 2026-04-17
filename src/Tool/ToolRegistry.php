@@ -12,6 +12,21 @@ final class ToolRegistry
     /** @var array<string, Tool> */
     private array $tools = [];
 
+    /** @var list<Closure> */
+    private array $middleware = [];
+
+    /**
+     * Registers a middleware that wraps every tool invocation.
+     *
+     * Signature: function(string $name, array $arguments, callable $next): mixed
+     *
+     * Middleware is executed in registration order (first registered = outermost).
+     */
+    public function addMiddleware(Closure $fn): void
+    {
+        $this->middleware[] = $fn;
+    }
+
     public function register(string $name, string $description, Closure $handler): void
     {
         $this->tools[$name] = new Tool($name, $description, $handler);
@@ -44,7 +59,21 @@ final class ToolRegistry
             );
         }
 
-        return $this->tools[$name]->call($arguments);
+        $tool = $this->tools[$name];
+        $tool->validate($arguments);
+
+        /** @var callable(string, array<string, mixed>): mixed $pipeline */
+        $pipeline = static function (string $n, array $args) use ($tool): mixed {
+            return $tool->call($args);
+        };
+
+        foreach (array_reverse($this->middleware) as $layer) {
+            $pipeline = static function (string $n, array $args) use ($layer, $pipeline): mixed {
+                return $layer($n, $args, $pipeline);
+            };
+        }
+
+        return $pipeline($name, $arguments);
     }
 
     public function has(string $name): bool

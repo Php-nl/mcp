@@ -349,4 +349,33 @@ final class JsonRpcHandlerTest extends TestCase
 
         $this->assertSame(ErrorCode::PromptNotFound->value, $response['error']['code']);
     }
+
+    public function testReturnsInvalidParamsWhenRequiredArgumentMissing(): void
+    {
+        $this->toolRegistry->register('add', 'Adds two numbers', fn (int $a, int $b): string => (string) ($a + $b));
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 20,
+            'method' => 'tools/call',
+            'params' => ['name' => 'add', 'arguments' => ['a' => 1]],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+        $this->assertStringContainsString('Missing required argument: b', $response['error']['data']);
+    }
+
+    public function testReturnsInvalidParamsWhenArgumentTypeIsWrong(): void
+    {
+        $this->toolRegistry->register('double', 'Doubles', fn (int $n): string => (string) ($n * 2));
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 21,
+            'method' => 'tools/call',
+            'params' => ['name' => 'double', 'arguments' => ['n' => 'not-a-number']],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InvalidParams->value, $response['error']['code']);
+    }
 }

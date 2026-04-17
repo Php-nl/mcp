@@ -120,6 +120,53 @@ $transport = new HttpSseTransport(
 );
 ```
 
+## Input Validation
+
+Arguments sent by the AI are automatically validated against the tool's JSON Schema before the handler is invoked. If a required argument is missing or has the wrong type, a `InvalidParams` error is returned to the client without ever calling your handler.
+
+```php
+McpServer::make()
+    ->tool(
+        name: 'send_email',
+        description: 'Sends an email',
+        handler: function (string $to, string $subject, string $body): string {
+            // $to, $subject and $body are guaranteed to be strings here
+            return "Email sent to {$to}";
+        },
+    )
+    ->serve();
+```
+
+If the AI omits `subject`, the response will be:
+
+```json
+{"error": {"code": -32602, "message": "Invalid params", "data": "Missing required argument: subject"}}
+```
+
+## Middleware
+
+Register middleware to run logic before or after every tool invocation — for logging, authentication, rate limiting, caching, and more.
+
+```php
+McpServer::make()
+    ->middleware(function (string $name, array $args, callable $next): mixed {
+        // Before: runs before the handler
+        $start = microtime(true);
+
+        $result = $next($name, $args);
+
+        // After: runs after the handler returns
+        $ms = round((microtime(true) - $start) * 1000);
+        error_log("Tool '{$name}' took {$ms}ms");
+
+        return $result;
+    })
+    ->tool('ping', 'Returns pong', fn (): string => 'pong')
+    ->serve();
+```
+
+Multiple middleware are executed in registration order (first registered runs first). Each middleware must call `$next($name, $args)` to continue the chain, or return a value directly to short-circuit.
+
 ## Developer CLI
 
 ```bash

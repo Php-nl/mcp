@@ -33,6 +33,28 @@ final class McpServer
         return new self($transport);
     }
 
+    /**
+     * Registers a middleware that wraps every tool invocation.
+     *
+     * The middleware receives the tool name, the (validated) arguments, and a
+     * $next callable to continue the chain. It must return the tool result.
+     *
+     * Example:
+     *
+     *   ->middleware(function (string $name, array $args, callable $next): mixed {
+     *       error_log("Calling tool: {$name}");
+     *       $result = $next($name, $args);
+     *       error_log("Tool {$name} returned: {$result}");
+     *       return $result;
+     *   })
+     */
+    public function middleware(Closure $fn): self
+    {
+        $this->toolRegistry->addMiddleware($fn);
+
+        return $this;
+    }
+
     public function tool(string $name, string $description, Closure $handler): self
     {
         $this->toolRegistry->register($name, $description, $handler);

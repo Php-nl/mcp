@@ -140,4 +140,112 @@ final class ToolTest extends TestCase
 
         $this->assertSame('Hello, World!', $tool->call(['name' => 'World']));
     }
+
+    // -------------------------------------------------------------------------
+    // validate()
+    // -------------------------------------------------------------------------
+
+    public function testValidatePassesForCorrectArguments(): void
+    {
+        $tool = new Tool('add', 'Adds numbers', fn (int $a, int $b): string => (string) ($a + $b));
+
+        $tool->validate(['a' => 1, 'b' => 2]); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidateThrowsForMissingRequiredArgument(): void
+    {
+        $tool = new Tool('add', 'Adds numbers', fn (int $a, int $b): string => (string) ($a + $b));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/Missing required argument: b/');
+
+        $tool->validate(['a' => 1]);
+    }
+
+    public function testValidateThrowsForWrongType(): void
+    {
+        $tool = new Tool('double', 'Doubles', fn (int $n): string => (string) ($n * 2));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches("/Argument 'n' must be of type integer/");
+
+        $tool->validate(['n' => 'not-an-int']);
+    }
+
+    public function testValidateAcceptsNullForNullableType(): void
+    {
+        $tool = new Tool('find', 'Finds', fn (?string $query): string => $query ?? '');
+
+        $tool->validate(['query' => null]); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidateAcceptsStringForNullableString(): void
+    {
+        $tool = new Tool('find', 'Finds', fn (?string $query): string => $query ?? '');
+
+        $tool->validate(['query' => 'hello']); // must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidatePassesForMissingOptionalArgument(): void
+    {
+        $tool = new Tool(
+            'greet',
+            'Greets',
+            fn (string $name, string $greeting = 'Hello'): string => "{$greeting}, {$name}!",
+        );
+
+        $tool->validate(['name' => 'World']); // 'greeting' is optional, must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidatePassesForAllSupportedTypes(): void
+    {
+        $tool = new Tool(
+            'all_types',
+            'All types',
+            fn (int $i, float $f, bool $b, array $a, string $s): string => '',
+        );
+
+        $tool->validate(['i' => 1, 'f' => 1.5, 'b' => true, 'a' => [], 's' => 'x']);
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidateAcceptsIntForFloatType(): void
+    {
+        // JSON 'number' type allows both int and float
+        $tool = new Tool('price', 'Price', fn (float $amount): string => (string) $amount);
+
+        $tool->validate(['amount' => 5]); // int satisfies 'number'
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidateIgnoresExtraArguments(): void
+    {
+        $tool = new Tool('ping', 'Ping', fn (): string => 'pong');
+
+        $tool->validate(['unexpected' => 'value']); // extra arg must not throw
+
+        $this->addToAssertionCount(1);
+    }
+
+    public function testValidateExceptionHasInvalidParamsErrorCode(): void
+    {
+        $tool = new Tool('add', 'Adds', fn (int $a): string => (string) $a);
+
+        try {
+            $tool->validate([]);
+            $this->fail('Expected RuntimeException');
+        } catch (\RuntimeException $e) {
+            $this->assertSame(\Phpnl\Mcp\Protocol\ErrorCode::InvalidParams->value, $e->getCode());
+        }
+    }
 }

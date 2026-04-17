@@ -112,7 +112,9 @@ final class JsonRpcHandler
                 ],
             ]);
         } catch (\RuntimeException $exception) {
-            return $this->errorResponse($message->id, ErrorCode::ToolNotFound, $exception->getMessage());
+            $code = ErrorCode::tryFrom($exception->getCode()) ?? ErrorCode::ToolNotFound;
+
+            return $this->errorResponse($message->id, $code, $exception->getMessage());
         } catch (\Throwable $exception) {
             return $this->errorResponse($message->id, ErrorCode::InternalError, $exception->getMessage());
         }
