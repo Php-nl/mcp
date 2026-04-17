@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Resource;
 
 use Closure;
-use Phpnl\Mcp\Protocol\ErrorCode;
+use Phpnl\Mcp\Exception\ResourceNotFoundException;
 
 final class ResourceRegistry
 {
@@ -35,10 +35,7 @@ final class ResourceRegistry
     public function read(string $uri): string
     {
         if (! isset($this->resources[$uri])) {
-            throw new \RuntimeException(
-                ErrorCode::ResourceNotFound->message() . ": {$uri}",
-                ErrorCode::ResourceNotFound->value,
-            );
+            throw new ResourceNotFoundException($uri);
         }
 
         return (string) ($this->resources[$uri]->handler)();

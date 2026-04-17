@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Tests\Unit\Prompt;
 
+use Phpnl\Mcp\Exception\PromptNotFoundException;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Protocol\ErrorCode;
 use Phpnl\Mcp\Tests\TestCase;
@@ -64,7 +65,7 @@ final class PromptRegistryTest extends TestCase
 
     public function testGetThrowsForUnknownPrompt(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(PromptNotFoundException::class);
         $this->expectExceptionCode(ErrorCode::PromptNotFound->value);
 
         $this->registry->get('missing', []);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Tests\Unit;
 
+use Phpnl\Mcp\Exception\InvalidToolArgumentsException;
+use Phpnl\Mcp\Exception\ToolNotFoundException;
 use Phpnl\Mcp\Protocol\ErrorCode;
 use Phpnl\Mcp\Tool\ToolRegistry;
 use PHPUnit\Framework\TestCase;
@@ -65,7 +67,7 @@ final class ToolRegistryTest extends TestCase
 
     public function testThrowsWhenToolNotFound(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ToolNotFoundException::class);
         $this->expectExceptionCode(ErrorCode::ToolNotFound->value);
 
         $this->registry->call('missing', []);
@@ -100,7 +102,7 @@ final class ToolRegistryTest extends TestCase
     {
         $this->registry->register('add', 'Adds', fn (int $a, int $b): string => (string) ($a + $b));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(InvalidToolArgumentsException::class);
         $this->expectExceptionMessageMatches('/Missing required argument: b/');
 
         $this->registry->call('add', ['a' => 1]);
@@ -110,7 +112,7 @@ final class ToolRegistryTest extends TestCase
     {
         $this->registry->register('double', 'Doubles', fn (int $n): string => (string) ($n * 2));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(InvalidToolArgumentsException::class);
         $this->expectExceptionMessageMatches("/Argument 'n' must be of type integer/");
 
         $this->registry->call('double', ['n' => 'not-a-number']);

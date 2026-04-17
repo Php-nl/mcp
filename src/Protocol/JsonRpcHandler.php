@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Protocol;
 
+use Phpnl\Mcp\Exception\McpException;
 use Phpnl\Mcp\McpServer;
 use Phpnl\Mcp\Prompt\PromptRegistry;
 use Phpnl\Mcp\Resource\ResourceRegistry;
@@ -113,10 +114,8 @@ final class JsonRpcHandler
                 : [['type' => 'text', 'text' => (string) $result]];
 
             return $this->successResponse($message->id, ['content' => $content]);
-        } catch (\RuntimeException $exception) {
-            $code = ErrorCode::tryFrom($exception->getCode()) ?? ErrorCode::ToolNotFound;
-
-            return $this->errorResponse($message->id, $code, $exception->getMessage());
+        } catch (McpException $exception) {
+            return $this->errorResponse($message->id, $exception->getErrorCode(), $exception->getMessage());
         } catch (\Throwable $exception) {
             return $this->errorResponse($message->id, ErrorCode::InternalError, $exception->getMessage());
         }
@@ -145,8 +144,8 @@ final class JsonRpcHandler
                     ['uri' => $uri, 'text' => $content],
                 ],
             ]);
-        } catch (\RuntimeException $exception) {
-            return $this->errorResponse($message->id, ErrorCode::ResourceNotFound, $exception->getMessage());
+        } catch (McpException $exception) {
+            return $this->errorResponse($message->id, $exception->getErrorCode(), $exception->getMessage());
         } catch (\Throwable $exception) {
             return $this->errorResponse($message->id, ErrorCode::InternalError, $exception->getMessage());
         }
@@ -177,8 +176,8 @@ final class JsonRpcHandler
                     ['role' => 'user', 'content' => ['type' => 'text', 'text' => $content]],
                 ],
             ]);
-        } catch (\RuntimeException $exception) {
-            return $this->errorResponse($message->id, ErrorCode::PromptNotFound, $exception->getMessage());
+        } catch (McpException $exception) {
+            return $this->errorResponse($message->id, $exception->getErrorCode(), $exception->getMessage());
         } catch (\Throwable $exception) {
             return $this->errorResponse($message->id, ErrorCode::InternalError, $exception->getMessage());
         }

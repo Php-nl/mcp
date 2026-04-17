@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Tests\Unit\Resource;
 
+use Phpnl\Mcp\Exception\ResourceNotFoundException;
 use Phpnl\Mcp\Protocol\ErrorCode;
 use Phpnl\Mcp\Resource\ResourceRegistry;
 use Phpnl\Mcp\Tests\TestCase;
@@ -52,7 +53,7 @@ final class ResourceRegistryTest extends TestCase
 
     public function testReadThrowsForUnknownUri(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(ResourceNotFoundException::class);
         $this->expectExceptionCode(ErrorCode::ResourceNotFound->value);
 
         $this->registry->read('file://missing');

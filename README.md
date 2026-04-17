@@ -178,6 +178,35 @@ If the AI omits `subject`, the response will be:
 {"error": {"code": -32602, "message": "Invalid params", "data": "Missing required argument: subject"}}
 ```
 
+## Exception Handling
+
+All MCP-specific errors are thrown as typed exceptions that extend `McpException` (which itself extends `\RuntimeException`).
+
+| Exception | Thrown when | Error code |
+|---|---|---|
+| `ToolNotFoundException` | A tool name is not registered | `ToolNotFound` (-32601) |
+| `InvalidToolArgumentsException` | Required argument missing or wrong type | `InvalidParams` (-32602) |
+| `ResourceNotFoundException` | A resource URI is not registered | `ResourceNotFound` (-32002) |
+| `PromptNotFoundException` | A prompt name is not registered | `PromptNotFound` (-32003) |
+
+You can catch them individually or as a group:
+
+```php
+use Phpnl\Mcp\Exception\McpException;
+use Phpnl\Mcp\Exception\ToolNotFoundException;
+
+try {
+    $registry->call('missing_tool', []);
+} catch (ToolNotFoundException $e) {
+    // specific handling
+} catch (McpException $e) {
+    // catch any other MCP error
+    echo $e->getErrorCode()->value; // JSON-RPC error code integer
+}
+```
+
+All exceptions carry the correct JSON-RPC error code as both `getErrorCode(): ErrorCode` and the native `getCode(): int`.
+
 ## Middleware
 
 Register middleware to run logic before or after every tool invocation — for logging, authentication, rate limiting, caching, and more.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phpnl\Mcp\Tests\Unit\Tool;
 
+use Phpnl\Mcp\Exception\InvalidToolArgumentsException;
 use Phpnl\Mcp\Tests\TestCase;
 use Phpnl\Mcp\Tool\Description;
 use Phpnl\Mcp\Tool\Tool;
@@ -158,7 +159,7 @@ final class ToolTest extends TestCase
     {
         $tool = new Tool('add', 'Adds numbers', fn (int $a, int $b): string => (string) ($a + $b));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(InvalidToolArgumentsException::class);
         $this->expectExceptionMessageMatches('/Missing required argument: b/');
 
         $tool->validate(['a' => 1]);
@@ -168,7 +169,7 @@ final class ToolTest extends TestCase
     {
         $tool = new Tool('double', 'Doubles', fn (int $n): string => (string) ($n * 2));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(InvalidToolArgumentsException::class);
         $this->expectExceptionMessageMatches("/Argument 'n' must be of type integer/");
 
         $tool->validate(['n' => 'not-an-int']);

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Tool;
 
 use Closure;
-use Phpnl\Mcp\Protocol\ErrorCode;
+use Phpnl\Mcp\Exception\InvalidToolArgumentsException;
 
 final readonly class Tool
 {
@@ -54,7 +54,7 @@ final readonly class Tool
      *
      * @param array<string, mixed> $arguments
      *
-     * @throws \RuntimeException with ErrorCode::InvalidParams if validation fails
+     * @throws InvalidToolArgumentsException if a required argument is missing or has the wrong type
      */
     public function validate(array $arguments): void
     {
@@ -62,10 +62,7 @@ final readonly class Tool
 
         foreach ($schema['required'] as $name) {
             if (! array_key_exists($name, $arguments)) {
-                throw new \RuntimeException(
-                    "Missing required argument: {$name}",
-                    ErrorCode::InvalidParams->value,
-                );
+                throw new InvalidToolArgumentsException("Missing required argument: {$name}");
             }
         }
 
@@ -79,9 +76,8 @@ final readonly class Tool
             if (! $this->matchesType($arguments[$name], $expectedType)) {
                 $label = is_array($expectedType) ? implode('|', $expectedType) : $expectedType;
 
-                throw new \RuntimeException(
+                throw new InvalidToolArgumentsException(
                     "Argument '{$name}' must be of type {$label}, got " . get_debug_type($arguments[$name]),
-                    ErrorCode::InvalidParams->value,
                 );
             }
         }

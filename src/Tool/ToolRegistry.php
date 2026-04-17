@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Tool;
 
 use Closure;
-use Phpnl\Mcp\Protocol\ErrorCode;
+use Phpnl\Mcp\Exception\ToolNotFoundException;
 
 final class ToolRegistry
 {
@@ -53,10 +53,7 @@ final class ToolRegistry
     public function call(string $name, array $arguments): mixed
     {
         if (! isset($this->tools[$name])) {
-            throw new \RuntimeException(
-                ErrorCode::ToolNotFound->message() . ": {$name}",
-                ErrorCode::ToolNotFound->value,
-            );
+            throw new ToolNotFoundException($name);
         }
 
         $tool = $this->tools[$name];

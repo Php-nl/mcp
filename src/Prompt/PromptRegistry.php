@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Phpnl\Mcp\Prompt;
 
 use Closure;
-use Phpnl\Mcp\Protocol\ErrorCode;
+use Phpnl\Mcp\Exception\PromptNotFoundException;
 
 final class PromptRegistry
 {
@@ -37,10 +37,7 @@ final class PromptRegistry
     public function get(string $name, array $arguments = []): string
     {
         if (! isset($this->prompts[$name])) {
-            throw new \RuntimeException(
-                ErrorCode::PromptNotFound->message() . ": {$name}",
-                ErrorCode::PromptNotFound->value,
-            );
+            throw new PromptNotFoundException($name);
         }
 
         return (string) ($this->prompts[$name]->handler)($arguments);
