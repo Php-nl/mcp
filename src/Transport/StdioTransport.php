@@ -6,9 +6,27 @@ namespace Phpnl\Mcp\Transport;
 
 final class StdioTransport implements TransportInterface
 {
+    /** @var resource */
+    private mixed $stdin;
+
+    /** @var resource */
+    private mixed $stdout;
+
+    /**
+     * @param resource|null $stdin  Defaults to STDIN
+     * @param resource|null $stdout Defaults to STDOUT
+     */
+    public function __construct(
+        mixed $stdin = null,
+        mixed $stdout = null,
+    ) {
+        $this->stdin = $stdin ?? STDIN;
+        $this->stdout = $stdout ?? STDOUT;
+    }
+
     public function read(): ?string
     {
-        $line = fgets(STDIN);
+        $line = fgets($this->stdin);
 
         if ($line === false) {
             return null;
@@ -19,7 +37,7 @@ final class StdioTransport implements TransportInterface
 
     public function write(string $message): void
     {
-        fwrite(STDOUT, $message . "\n");
-        fflush(STDOUT);
+        fwrite($this->stdout, $message . "\n");
+        fflush($this->stdout);
     }
 }
