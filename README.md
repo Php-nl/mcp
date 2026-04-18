@@ -1,7 +1,7 @@
 # phpnl/mcp
 
-[![CI](https://github.com/phpnl/mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/phpnl/mcp/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/phpnl/mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/phpnl/mcp)
+[![CI](https://github.com/Php-nl/mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Php-nl/mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Php-nl/mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/Php-nl/mcp)
 [![Latest Version](https://img.shields.io/packagist/v/phpnl/mcp.svg)](https://packagist.org/packages/phpnl/mcp)
 [![License](https://img.shields.io/packagist/l/phpnl/mcp.svg)](LICENSE)
 
