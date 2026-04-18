@@ -114,6 +114,26 @@ final class ToolTest extends TestCase
         $this->assertSame(['string', 'null'], $schema['properties']['query']['type']);
     }
 
+    public function testSchemaUnionTypeWithNullProducesArrayType(): void
+    {
+        // int|null written as a union type (ReflectionUnionType, not ReflectionNamedType)
+        $tool = new Tool('find', 'Finds by id', fn (int|null $id): string => (string) ($id ?? 0));
+
+        $schema = $tool->schema();
+
+        $this->assertSame(['integer', 'null'], $schema['properties']['id']['type']);
+    }
+
+    public function testSchemaMultiTypeUnionFallsBackToString(): void
+    {
+        // int|string has multiple non-null types — falls back to 'string'
+        $tool = new Tool('mixed', 'Mixed input', fn (int|string $value): string => (string) $value);
+
+        $schema = $tool->schema();
+
+        $this->assertSame('string', $schema['properties']['value']['type']);
+    }
+
     public function testCallDelegatesToHandler(): void
     {
         $tool = new Tool('double', 'Doubles a number', fn (int $n): string => (string) ($n * 2));

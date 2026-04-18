@@ -38,4 +38,17 @@ final class ServerProcessTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    public function testReceiveSkipsNonJsonLinesAndReturnsNullOnEof(): void
+    {
+        // noisy-server.php outputs a non-JSON line then exits immediately.
+        // receive() must skip the non-JSON line, detect EOF (fgets === false), and return null.
+        $server = new ServerProcess(self::fixturePath('noisy-server.php'));
+        $server->start();
+
+        $result = $server->receive(2.0);
+        $server->stop();
+
+        $this->assertNull($result);
+    }
 }

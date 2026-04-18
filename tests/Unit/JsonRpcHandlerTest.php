@@ -384,6 +384,49 @@ final class JsonRpcHandlerTest extends TestCase
         $this->assertSame(ErrorCode::PromptNotFound->value, $response['error']['code']);
     }
 
+    public function testReturnsInternalErrorWhenResourceHandlerThrowsUnexpectedException(): void
+    {
+        $this->resourceRegistry->register(
+            'file://boom',
+            'Boom',
+            'text/plain',
+            function (): string {
+                throw new \RuntimeException('Unexpected resource failure');
+            },
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 60,
+            'method' => 'resources/read',
+            'params' => ['uri' => 'file://boom'],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InternalError->value, $response['error']['code']);
+        $this->assertStringContainsString('Unexpected resource failure', $response['error']['data']);
+    }
+
+    public function testReturnsInternalErrorWhenPromptHandlerThrowsUnexpectedException(): void
+    {
+        $this->promptRegistry->register(
+            'explode',
+            'Always explodes',
+            function (array $args): string {
+                throw new \RuntimeException('Unexpected prompt failure');
+            },
+        );
+
+        $response = json_decode($this->handler->handle(json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 61,
+            'method' => 'prompts/get',
+            'params' => ['name' => 'explode', 'arguments' => []],
+        ])), true);
+
+        $this->assertSame(ErrorCode::InternalError->value, $response['error']['code']);
+        $this->assertStringContainsString('Unexpected prompt failure', $response['error']['data']);
+    }
+
     public function testReturnsInvalidParamsWhenRequiredArgumentMissing(): void
     {
         $this->toolRegistry->register('add', 'Adds two numbers', fn (int $a, int $b): string => (string) ($a + $b));

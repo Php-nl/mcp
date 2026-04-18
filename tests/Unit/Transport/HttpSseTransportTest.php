@@ -84,6 +84,7 @@ final class HttpSseTransportTest extends TestCase
 
         // Now the transport's sseSocket is set — write a message
         $transport->write('{"jsonrpc":"2.0","id":42,"result":{}}');
+        usleep(20_000); // allow OS to deliver the write to the client receive buffer
 
         // The client should receive an SSE data frame.
         // Use readUntil so we don't stop early on the endpoint event's own "\n\n".
@@ -139,7 +140,7 @@ final class HttpSseTransportTest extends TestCase
         fwrite($sseSocket, "GET /sse HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"); // @phpstan-ignore-line
         fflush($sseSocket); // @phpstan-ignore-line
 
-        $this->driveTransport($transport, iterations: 5);
+        $this->driveTransport($transport, iterations: 8);
 
         stream_set_timeout($sseSocket, 2); // @phpstan-ignore-line
         $buffer = $this->readUntil($sseSocket, 'event: endpoint');
@@ -204,7 +205,7 @@ final class HttpSseTransportTest extends TestCase
         fwrite($sseSocket, "GET /sse HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"); // @phpstan-ignore-line
         fflush($sseSocket); // @phpstan-ignore-line
 
-        $this->driveTransport($transport, iterations: 5);
+        $this->driveTransport($transport, iterations: 8);
 
         $buffer = $this->readUntil($sseSocket, 'event: endpoint');
 
@@ -378,7 +379,7 @@ final class HttpSseTransportTest extends TestCase
         fwrite($socket, "OPTIONS /message HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"); // @phpstan-ignore-line
         fflush($socket); // @phpstan-ignore-line
 
-        $this->driveTransport($transport, iterations: 5);
+        $this->driveTransport($transport, iterations: 8);
 
         stream_set_timeout($socket, 2); // @phpstan-ignore-line
         $response = (string) fread($socket, 4096); // @phpstan-ignore-line
@@ -441,6 +442,89 @@ final class HttpSseTransportTest extends TestCase
         fclose($clientSocket); // @phpstan-ignore-line
 
         $this->assertStringContainsString('HTTP/1.1 500 ', $response);
+    }
+
+    // =========================================================================
+    // SSE client disconnect detection
+    // =========================================================================
+
+    public function testReadDetectsSseClientDisconnectAndClearsSseSocket(): void
+    {
+        $port = $this->freePort();
+        $transport = new HttpSseTransport(host: '127.0.0.1', port: $port);
+
+        // Create a socket pair and close our end to simulate an SSE client disconnecting
+        [$clientEnd, $serverEnd] = $this->socketPair();
+        fclose($clientEnd); // @phpstan-ignore-line
+        usleep(10_000); // Allow EOF to propagate through the OS
+
+        // Inject serverEnd as the active SSE socket
+        $ref = new \ReflectionClass($transport);
+        $sseProp = $ref->getProperty('sseSocket');
+        $sseProp->setAccessible(true);
+        $sseProp->setValue($transport, $serverEnd);
+
+        // POST a message so that read() has something to return after the loop
+        $body = '{"jsonrpc":"2.0","id":1,"method":"ping"}';
+        $postSocket = stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 2);
+        $this->assertNotFalse($postSocket, "POST connect failed: {$errstr}");
+        fwrite($postSocket, implode("\r\n", [ // @phpstan-ignore-line
+            'POST /message HTTP/1.1',
+            'Host: 127.0.0.1',
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($body),
+            '',
+            '',
+        ]) . $body);
+        fflush($postSocket); // @phpstan-ignore-line
+        usleep(5_000); // Let the POST data arrive in the server's receive buffer
+
+        // read() should process both: the POST (fills inbox) and the SSE disconnect
+        $message = $transport->read();
+
+        $this->assertNotNull($message);
+        $this->assertNull($sseProp->getValue($transport), 'sseSocket must be null after client disconnects');
+
+        fclose($postSocket); // @phpstan-ignore-line
+    }
+
+    public function testWriteHandlesFwriteFailureGracefully(): void
+    {
+        $port = $this->freePort();
+        $transport = new HttpSseTransport(host: '127.0.0.1', port: $port);
+
+        // Create a stream and immediately close it to produce a broken resource
+        $stream = fopen('php://memory', 'w+');
+        $this->assertNotFalse($stream);
+        fclose($stream); // @phpstan-ignore-line — now $stream is a closed/invalid resource
+
+        // Inject the closed stream as the SSE socket
+        $ref = new \ReflectionClass($transport);
+        $sseProp = $ref->getProperty('sseSocket');
+        $sseProp->setAccessible(true);
+        $sseProp->setValue($transport, $stream);
+
+        // write() uses @fwrite which returns false for a closed resource
+        $transport->write('some message');
+
+        // sseSocket must be null after the fwrite failure
+        $this->assertNull($sseProp->getValue($transport));
+    }
+
+    public function testDispatchHandlesClientThatDisconnectsBeforeSendingRequest(): void
+    {
+        $port = $this->freePort();
+        $transport = new HttpSseTransport(host: '127.0.0.1', port: $port);
+
+        // Connect and immediately close without sending any HTTP data
+        $socket = stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 2);
+        $this->assertNotFalse($socket, "Could not connect: {$errstr}");
+        fclose($socket); // @phpstan-ignore-line — triggers fgets() === false inside dispatch()
+
+        // Drive the transport — dispatch() should handle fgets returning false without throwing
+        $this->driveTransport($transport, iterations: 10);
+
+        $this->addToAssertionCount(1);
     }
 
     // =========================================================================

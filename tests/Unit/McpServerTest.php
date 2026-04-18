@@ -7,6 +7,7 @@ namespace Phpnl\Mcp\Tests\Unit;
 use Phpnl\Mcp\McpServer;
 use Phpnl\Mcp\Protocol\JsonRpcHandler;
 use Phpnl\Mcp\Tests\TestCase;
+use Phpnl\Mcp\Tool\ProgressReporter;
 use Phpnl\Mcp\Transport\TransportInterface;
 
 final class McpServerTest extends TestCase
@@ -153,6 +154,41 @@ final class McpServerTest extends TestCase
         }
 
         $this->assertTrue($called);
+    }
+
+    public function testServeProgressWriterClosureInvokesTransportWrite(): void
+    {
+        $toolCallMessage = json_encode([
+            'jsonrpc' => '2.0',
+            'id' => 1,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'work',
+                'arguments' => [],
+                '_meta' => ['progressToken' => 'tok-1'],
+            ],
+        ]);
+
+        $transport = $this->makeFakeTransport([$toolCallMessage]);
+
+        $server = McpServer::make($transport);
+        $server->tool('work', 'Does work', function (ProgressReporter $progress): string {
+            $progress->report(1, 1);
+
+            return 'done';
+        });
+
+        try {
+            $server->serve();
+        } catch (\OverflowException) {
+        }
+
+        // At least 2 writes: the progress notification + the final tool response.
+        // This exercises the writer closure on line 85 of McpServer.
+        $this->assertGreaterThanOrEqual(2, count($transport->getWritten()));
+
+        $notification = json_decode($transport->getWritten()[0], true);
+        $this->assertSame('notifications/progress', $notification['method']);
     }
 
     private function makeFakeTransport(array $messages): object

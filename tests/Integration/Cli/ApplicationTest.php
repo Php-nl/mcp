@@ -97,6 +97,24 @@ final class ApplicationTest extends TestCase
         $this->assertSame(1, $code);
     }
 
+    public function testRunReadWithMissingUriReturnsError(): void
+    {
+        ob_start();
+        $code = $this->app->run(['phpnl', 'read', self::exampleServerPath()]);
+        ob_end_clean();
+
+        $this->assertSame(1, $code);
+    }
+
+    public function testRunPromptWithMissingNameReturnsError(): void
+    {
+        ob_start();
+        $code = $this->app->run(['phpnl', 'prompt', self::exampleServerPath()]);
+        ob_end_clean();
+
+        $this->assertSame(1, $code);
+    }
+
     public function testRunCallWithRealServer(): void
     {
         ob_start();

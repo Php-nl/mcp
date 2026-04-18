@@ -104,10 +104,19 @@ final class HttpSseTransport implements TransportInterface
             return;
         }
 
-        $result = @fwrite($this->sseSocket, "data: {$message}\n\n");
+        try {
+            $result = @fwrite($this->sseSocket, "data: {$message}\n\n");
+        } catch (\TypeError) {
+            $result = false;
+        }
 
         if ($result === false) {
-            @fclose($this->sseSocket);
+            try {
+                @fclose($this->sseSocket);
+            } catch (\TypeError) {
+                // Socket was already in an invalid state
+            }
+
             $this->sseSocket = null;
 
             return;
@@ -119,11 +128,19 @@ final class HttpSseTransport implements TransportInterface
     public function __destruct()
     {
         if ($this->sseSocket !== null) {
-            @fclose($this->sseSocket);
+            try {
+                @fclose($this->sseSocket);
+            } catch (\TypeError) {
+                // Socket was already in an invalid state
+            }
         }
 
         if ($this->serverSocket !== null) {
-            @fclose($this->serverSocket);
+            try {
+                @fclose($this->serverSocket);
+            } catch (\TypeError) {
+                // Socket was already in an invalid state
+            }
         }
     }
 
